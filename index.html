@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Young Living Guide (ภาษาไทย)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        .ylo-card {
+            background-color: #ffffff;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+        }
+        .ylo-button {
+            background-color: #0c4a6e; /* Deep Blue, inspired by YL colors */
+            color: white;
+            transition: background-color 0.3s;
+        }
+        .ylo-button:hover:not(:disabled) {
+            background-color: #1e40af; /* Darker blue on hover */
+        }
+        .ylo-header {
+            color: #0c4a6e;
+        }
+        /* Custom styling for the active toggle button */
+        .mode-active {
+            background-color: #ffffff;
+            color: #0c4a6e;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        .mode-inactive {
+            background-color: transparent;
+            color: #4b5563; /* gray-700 */
+        }
+        /* Custom scrollbar for aesthetic results box */
+        #results-area {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 flex items-start justify-center min-h-screen">
+
+    <div class="w-full max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold ylo-header">คู่มือผลิตภัณฑ์ Young Living (ไทย)</h1>
+            <p class="text-gray-600 mt-2">ค้นหาข้อมูลผลิตภัณฑ์ตามชื่อสินค้า หรืออาการ/โรคที่ต้องการบรรเทา</p>
+        </header>
+
+        <!-- Input and Search Area -->
+        <div class="ylo-card p-6 mb-8 flex flex-col space-y-4 items-stretch">
+            
+            <!-- Search Mode Toggle -->
+            <div class="flex justify-center space-x-1 bg-gray-100 p-1 rounded-lg">
+                <button id="mode-product-btn" onclick="setSearchMode('product')" class="flex-1 p-2 rounded-lg font-semibold text-sm transition-colors">
+                    ค้นหาจากสินค้า
+                </button>
+                <button id="mode-symptom-btn" onclick="setSearchMode('symptom')" class="flex-1 p-2 rounded-lg font-semibold text-sm transition-colors">
+                    ค้นหาจากอาการ/โรค
+                </button>
+            </div>
+
+            <div class="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 items-center">
+                <input
+                    type="text"
+                    id="product-input"
+                    placeholder="พิมพ์ชื่อผลิตภัณฑ์ (เช่น Lavender, Thieves, Copaiba)"
+                    class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-800 w-full"
+                    onkeypress="if(event.key === 'Enter') document.getElementById('search-btn').click()"
+                />
+                <button
+                    id="search-btn"
+                    onclick="searchProduct()"
+                    class="ylo-button p-3 rounded-lg font-semibold w-full md:w-auto flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <span id="button-text">ค้นหา</span>
+                    <svg id="loading-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Display Area -->
+        <div id="results-container" class="hidden">
+            <div id="results-area" class="ylo-card p-6 mb-8 text-gray-700">
+                <h2 class="text-2xl font-bold ylo-header mb-4" id="result-title"></h2>
+                <div id="result-content" class="prose max-w-none">
+                    <!-- AI generated content will be injected here -->
+                </div>
+            </div>
+
+            <!-- Grounding Sources Display -->
+            <div id="sources-area" class="text-sm text-gray-500 mt-4 p-4 border-t border-gray-200">
+                <p class="font-semibold mb-2">แหล่งข้อมูลอ้างอิง (Google Search Grounding):</p>
+                <ul id="source-list" class="list-disc list-inside space-y-1">
+                    <!-- Sources will be injected here -->
+                </ul>
+            </div>
+        </div>
+
+        <!-- Error/Initial Message Area -->
+        <div id="message-area" class="ylo-card p-6 text-center text-gray-500">
+            <p>กรุณาพิมพ์ชื่อผลิตภัณฑ์ Young Living ที่คุณต้องการค้นหาข้อมูล</p>
+        </div>
+
+    </div>
+
+    <script>
+        // Global Constants
+        const apiKey = "AIzaSyBNo2dOVS5YEoIdFMZDnfnxUDMCJMcZSGw"; // API key is handled by the canvas environment
+        const modelName = 'gemini-2.5-flash-preview-09-2025';
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        
+        // Global State
+        let currentSearchMode = 'product'; // Default mode is 'product'
+
+        // --- Utility Functions for UI State ---
+
+        function setSearchMode(mode) {
+            currentSearchMode = mode;
+            const productBtn = document.getElementById('mode-product-btn');
+            const symptomBtn = document.getElementById('mode-symptom-btn');
+            const inputField = document.getElementById('product-input');
+
+            // 1. Update Button Styling
+            if (mode === 'product') {
+                productBtn.classList.add('mode-active');
+                productBtn.classList.remove('mode-inactive');
+                symptomBtn.classList.add('mode-inactive');
+                symptomBtn.classList.remove('mode-active');
+                inputField.placeholder = "พิมพ์ชื่อผลิตภัณฑ์ (เช่น Lavender, Thieves, Copaiba)";
+                document.getElementById('message-area').innerHTML = '<p>กรุณาพิมพ์ชื่อผลิตภัณฑ์ Young Living ที่คุณต้องการค้นหาข้อมูล</p>';
+            } else if (mode === 'symptom') {
+                symptomBtn.classList.add('mode-active');
+                symptomBtn.classList.remove('mode-inactive');
+                productBtn.classList.add('mode-inactive');
+                productBtn.classList.remove('mode-active');
+                inputField.placeholder = "พิมพ์อาการหรือโรค (เช่น ปวดหัว, ภูมิแพ้, นอนไม่หลับ)";
+                document.getElementById('message-area').innerHTML = '<p>กรุณาพิมพ์อาการหรือโรคที่คุณต้องการคำแนะนำผลิตภัณฑ์</p>';
+            }
+            
+            // 2. Clear previous results/input for clarity
+            inputField.value = '';
+            document.getElementById('results-container').classList.add('hidden');
+            document.getElementById('message-area').classList.remove('hidden');
+        }
+
+        function setAppState(state) {
+            const searchBtn = document.getElementById('search-btn');
+            const buttonText = document.getElementById('button-text');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const inputField = document.getElementById('product-input');
+
+            if (state === 'loading') {
+                searchBtn.disabled = true;
+                inputField.disabled = true;
+                buttonText.textContent = 'กำลังค้นหา...';
+                loadingSpinner.classList.remove('hidden');
+                document.getElementById('message-area').classList.add('hidden');
+                document.getElementById('results-container').classList.add('hidden');
+            } else if (state === 'ready') {
+                searchBtn.disabled = false;
+                inputField.disabled = false;
+                buttonText.textContent = 'ค้นหา';
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        function displayResults(text, sources, searchTopic, mode) {
+            const resultsContainer = document.getElementById('results-container');
+            const messageArea = document.getElementById('message-area');
+            const resultTitle = document.getElementById('result-title');
+            const resultContent = document.getElementById('result-content');
+            const sourceList = document.getElementById('source-list');
+
+            resultsContainer.classList.remove('hidden');
+            messageArea.classList.add('hidden');
+            
+            // Set the result title based on the search mode
+            if (mode === 'product') {
+                resultTitle.textContent = `ข้อมูลผลิตภัณฑ์: ${searchTopic}`;
+            } else {
+                resultTitle.textContent = `คำแนะนำสำหรับอาการ: ${searchTopic}`;
+            }
+
+            // Simple markdown to HTML conversion for bold and lists
+            resultContent.innerHTML = text
+                .replace(/\*\*(.*?)\*\*/g, '<h3><strong>$1</strong></h3>') // Convert **Heading** to <h3>
+                .replace(/\*/g, '•'); // Convert * list items to •
+
+            // Display sources
+            sourceList.innerHTML = '';
+            if (sources && sources.length > 0) {
+                sources.forEach(source => {
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `<a href="${source.uri}" target="_blank" class="text-blue-600 hover:underline">${source.title || source.uri}</a>`;
+                    sourceList.appendChild(listItem);
+                });
+            } else {
+                 sourceList.innerHTML = '<li>ไม่พบแหล่งข้อมูลอ้างอิงที่ระบุ</li>';
+            }
+        }
+
+        function displayError(message) {
+            const resultsContainer = document.getElementById('results-container');
+            const messageArea = document.getElementById('message-area');
+
+            resultsContainer.classList.add('hidden');
+            messageArea.classList.remove('hidden');
+            messageArea.innerHTML = `
+                <p class="text-red-600 font-semibold mb-2">เกิดข้อผิดพลาดในการค้นหา:</p>
+                <p>${message}</p>
+            `;
+        }
+        
+        // --- Core Fetch Logic ---
+        
+        async function fetchWithExponentialBackoff(fetchCall, maxRetries = 5) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetchCall();
+                    if (response.ok) {
+                        return response;
+                    }
+                    if (response.status === 429 && i < maxRetries - 1) {
+                        // Rate limit exceeded, apply exponential backoff
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    }
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                } catch (error) {
+                    if (i === maxRetries - 1) {
+                        throw error;
+                    }
+                    // For other errors, still apply backoff before retrying
+                    const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        async function searchProduct() {
+            const searchTopic = document.getElementById('product-input').value.trim();
+            if (!searchTopic) {
+                displayError(currentSearchMode === 'product' ? "กรุณาป้อนชื่อผลิตภัณฑ์ Young Living" : "กรุณาป้อนอาการหรือโรคที่ต้องการค้นหา");
+                return;
+            }
+
+            setAppState('loading');
+
+            let systemPrompt = '';
+            let userQuery = '';
+            
+            // Logic based on search mode
+            if (currentSearchMode === 'product') {
+                systemPrompt = `
+                    คุณคือผู้เชี่ยวชาญด้านน้ำมันหอมระเหยของ Young Living ที่ใช้ข้อมูลอ้างอิงจาก 'Desk Reference' กรุณาตอบกลับเป็นภาษาไทยที่สุภาพและเป็นทางการเท่านั้น
+                    งานของคุณคือการให้ข้อมูลเกี่ยวกับคุณสมบัติและวิธีการใช้น้ำมันหอมระเหยที่ผู้ใช้ระบุ
+                    รูปแบบการตอบกลับต้องมีหัวข้อ: "**คุณสมบัติ (Properties)**" และ "**วิธีใช้ (Usage)**" โดยใช้รูปแบบ Markdown ให้ชัดเจน และต้องใช้ภาษาไทยทั้งหมด
+                `;
+                
+                userQuery = `
+                    ค้นหาข้อมูลเกี่ยวกับน้ำมัน "Young Living ${searchTopic}" และให้รายละเอียดในหัวข้อ: คุณสมบัติ และ วิธีใช้ (โปรดระบุวิธีการใช้ที่หลากหลาย เช่น ทาภายนอก สูดดม หรือการกระจายกลิ่น)
+                `;
+
+            } else if (currentSearchMode === 'symptom') {
+                systemPrompt = `
+                    คุณคือผู้เชี่ยวชาญด้านสุขภาพและผลิตภัณฑ์ Young Living ที่ใช้ข้อมูลอ้างอิงจาก 'Desk Reference' กรุณาตอบกลับเป็นภาษาไทยที่สุภาพและเป็นทางการเท่านั้น
+                    งานของคุณคือการแนะนำผลิตภัณฑ์ Young Living ที่เหมาะสมที่สุด (Essential Oils, Blends, หรือ Supplements) สำหรับอาการหรือโรคที่ผู้ใช้ระบุ
+                    รูปแบบการตอบกลับต้องมีหัวข้อ: "**อาการที่ต้องการบรรเทา**", "**ผลิตภัณฑ์ Young Living ที่แนะนำ**" และ "**วิธีใช้สำหรับอาการนี้**" โดยใช้รูปแบบ Markdown ให้ชัดเจน และต้องใช้ภาษาไทยทั้งหมด
+                    ต้องเน้นย้ำว่าข้อมูลนี้เป็นคำแนะนำจาก Desk Reference และไม่ใช่การรักษาทางการแพทย์
+                `;
+
+                userQuery = `
+                    ฉันมีอาการหรือต้องการบรรเทาอาการ "${searchTopic}" โปรดแนะนำผลิตภัณฑ์ Young Living (Essential Oils, Blends, หรือ Supplements) ที่เกี่ยวข้องและเหมาะสมที่สุด พร้อมทั้งอธิบายวิธีการใช้ผลิตภัณฑ์นั้น ๆ เพื่อบรรเทาอาการนี้โดยเฉพาะ
+                `;
+            }
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                // Use Google Search grounding to act as the "Desk Reference" source
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            try {
+                const response = await fetchWithExponentialBackoff(() => 
+                    fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    })
+                );
+
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    const text = candidate.content.parts[0].text;
+                    
+                    let sources = [];
+                    const groundingMetadata = candidate.groundingMetadata;
+                    if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                        sources = groundingMetadata.groundingAttributions
+                            .map(attribution => ({
+                                uri: attribution.web?.uri,
+                                title: attribution.web?.title,
+                            }))
+                            .filter(source => source.uri && source.title);
+                    }
+                    
+                    displayResults(text, sources, searchTopic, currentSearchMode);
+
+                } else {
+                    displayError("ไม่สามารถค้นหาข้อมูลสำหรับผลิตภัณฑ์/อาการนี้ได้ โปรดลองคำอื่น");
+                }
+
+            } catch (e) {
+                console.error("Fetch failed:", e);
+                displayError(`เกิดข้อผิดพลาดในการเชื่อมต่อ: ${e.message}`);
+            } finally {
+                setAppState('ready');
+            }
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            setSearchMode('product'); // Set the initial mode and styling
+        };
+
+    </script>
+</body>
+</html>
